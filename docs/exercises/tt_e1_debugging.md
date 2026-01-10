@@ -13,12 +13,16 @@ Goal: use sanitizers to turn “mysterious crashes” into actionable diagnostic
 ```bash
 cd exercises/TT-E1-debugging-sanitizers/starter
 
-cmake -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
+rm -rf build-asan
+CC=clang CXX=clang++ cmake -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON
 cmake --build build-asan -j"$(nproc)"
-ctest --test-dir build-asan --output-on-failure
 
 ./build-asan/analyze
+
+## Optional
+ctest --test-dir build-asan --output-on-failure
 ```
+
 
 ## Stretch
 * Make ThreadSanitizer clean (if applicable)

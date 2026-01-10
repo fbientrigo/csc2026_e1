@@ -13,12 +13,27 @@ RUN apt-get update && \
         cmake \
         ninja-build \
         g++ \
-        clang \
-        clang-tidy \
         gdb \
         valgrind \
         python3 \
         python3-pip && \
+    \
+    # Clang + sanitizer runtimes.
+    # Prefer LLVM 20 when available (Codespaces currently ships clang 20).
+    (apt-get install -y --no-install-recommends \
+        clang-20 \
+        clang-tidy-20 \
+        llvm-20 \
+        lld-20 \
+        compiler-rt-20 \
+        libclang-rt-20-dev \
+      || apt-get install -y --no-install-recommends \
+        clang \
+        clang-tidy \
+        llvm \
+        lld \
+        compiler-rt \
+        libclang-rt-dev) && \
     \
     # perf package name varies by Ubuntu release and kernel packaging
     # Try the common providers. Do not fail the build if perf cannot be installed.

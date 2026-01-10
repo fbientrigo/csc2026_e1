@@ -7,9 +7,30 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(ENABLE_SANITIZERS "Enable ASan/UBSan for debugging" OFF)
 
 if(ENABLE_SANITIZERS)
+  if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(FATAL_ERROR
+      "ENABLE_SANITIZERS is supported in this course using Clang.\n"
+      "Reconfigure with:\n"
+      "  rm -rf build-asan\n"
+      "  CC=clang CXX=clang++ cmake -B build-asan -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENABLE_SANITIZERS=ON\n"
+      "  cmake --build build-asan\n"
+      "  ./build-asan/analyze\n")
+  endif()
+
   message(STATUS "Sanitizers: ON (address,undefined)")
-  add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer -g)
-  add_link_options(-fsanitize=address,undefined)
+
+  add_library(tt_e1_sanitize_flags INTERFACE)
+  target_compile_options(tt_e1_sanitize_flags INTERFACE
+    -fsanitize=address,undefined
+    -fno-omit-frame-pointer
+    -g
+    # safety: if the environment injects these, remove them so ASan report matches slides
+    -U_GLIBCXX_ASSERTIONS
+    -U_GLIBCXX_DEBUG
+  )
+  target_link_options(tt_e1_sanitize_flags INTERFACE
+    -fsanitize=address,undefined
+  )
 endif()
 
 # -----------------------------------------------------------------------------
@@ -19,6 +40,10 @@ add_library(tt_e1_core
   src/TrackReconstructor.cpp
 )
 target_include_directories(tt_e1_core PUBLIC include)
+
+if(ENABLE_SANITIZERS)
+  target_link_libraries(tt_e1_core PUBLIC tt_e1_sanitize_flags)
+endif()
 
 # -----------------------------------------------------------------------------
 # "Analyze" executable that triggers the bugs
@@ -49,4 +74,3 @@ if(BUILD_TESTING)
 
   add_test(NAME tt_e1_tests COMMAND test_tt_e1)
 endif()
-
