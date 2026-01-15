@@ -2,20 +2,27 @@ name: Process ATLAS ROOT Open Data (SILAFAE 2024)
 
 on:
   workflow_dispatch:
-    inputs:
+    inputs: # by default we define which folder contains the URL's
       data_file:
         description: "Path to the Data URLs input file"
         default: "exercises/TT-E2-docs-and-ci/ci-parallel-root/data.csv"
-        required: true
+        required: true 
 
+# The profesor commented it but it is recommended to use it
+# allow for execution every T time
+# as github can give computer with a delay of minutes, we'll have every know and then
+# This its very comfortable to use it to plot every friday night :)
 #  schedule:
 #    - cron: "0 */10 * * *" # every 10 hours (UTC)
+
 
   push:
     branches: [main]
     paths:
       - "exercises/TT-E2-docs-and-ci/ci-parallel-root/data.csv"
       - "exercises/TT-E2-docs-and-ci/ci-parallel-root/mc.csv"
+
+      # we commented out, so chaning the python does not modify the code
 #      - "exercises/TT-E2-docs-and-ci/ci-parallel-root/gamma-gamma-analysis-v1.py"
 #      - "exercises/TT-E2-docs-and-ci/ci-parallel-root/root-to-png.py"
 
@@ -76,6 +83,7 @@ jobs:
           data_file_name=$(basename "$DATA_FILE" .csv)
           echo "data_file_name=$data_file_name" >> "$GITHUB_OUTPUT"
 
+  # This part its the one with paralelization
   process-file:
     needs: setup
     runs-on: ubuntu-latest
@@ -100,6 +108,7 @@ jobs:
             cd /workspace/${{ env.EX_DIR }}
             mkdir -p plots
             python3 gamma-gamma-analysis-v1.py "${{ matrix.file }}"
+      # martix file its all the diferent files, this its all a diferente job
 
       # Do NOT commit here. Upload artifacts. One final job will commit once.
       - name: Upload per-file histogram outputs
@@ -156,6 +165,8 @@ jobs:
             hadd -f "$out" histogram_*.root
             echo "Created: $out"
 
+
+      # We'll have a pair of files png and root
       - name: Convert merged ROOT -> PNG (Docker)
         uses: addnab/docker-run-action@v3
         with:
