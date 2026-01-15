@@ -131,3 +131,119 @@ By completing this exercise, you will:
 * If no plots appear, check **Actions > Run logs > merge-and-publish**.
 * Use the default data first (`data.csv`), then test with `mc.csv`.
 * You can re-run any workflow from the web interface to compare results.
+* 
+
+____
+
+# My Notes - Excercise 2: 260115
+
+The instructions say to activate the workflow in order to take into account the data file, data.csv has some URLs which points to some rootfiles
+<img width="991" height="542" alt="image" src="https://github.com/user-attachments/assets/69089a0b-d285-4b4d-a845-335783ba43d2" />
+
+We are reading/streaming this files from the CERN servers, this are arond 3GB, we aren't downloading them, just streaming.
+Normally in python you load the whole thing, but whit ROOT data we can directly stream it.
+
+## The CI/CD
+
+```yaml
+name: Process ATLAS ROOT Open Data (SILAFAE 2024)
+
+on:
+  workflow_dispatch:
+    inputs: # by default we define which folder contains the URL's
+      data_file:
+        description: "Path to the Data URLs input file"
+        default: "exercises/TT-E2-docs-and-ci/ci-parallel-root/data.csv"
+        required: true 
+
+# The profesor commented it but it is recommended to use it
+# allow for execution every T time
+# as github can give computer with a delay of minutes, we'll have every know and then
+# This its very comfortable to use it to plot every friday night :)
+#  schedule:
+#    - cron: "0 */10 * * *" # every 10 hours (UTC)
+
+
+  push:
+    branches: [main]
+    paths:
+      - "exercises/TT-E2-docs-and-ci/ci-parallel-root/data.csv"
+      - "exercises/TT-E2-docs-and-ci/ci-parallel-root/mc.csv"
+#      - "exercises/TT-E2-docs-and-ci/ci-parallel-root/gamma-gamma-analysis-v1.py"
+#      - "exercises/TT-E2-docs-and-ci/ci-parallel-root/root-to-png.py"
+```
+Concurrency allows to specify if the run will cancel if there's other
+```yaml
+concurrency:
+  group: atlas-root-${{ github.ref }}
+  cancel-in-progress: false
+```
+
+In order to use the actions, if it does not work we have to check: https://us.githubstatus.com/
+
+An powerfull part of this CI, we can have multiple machines with different images for each one in order to paralelize process and use any image
+The parallelization is incorporated in the **`process-file`** job, specifically within the `strategy` block.
+Here is the exact section of your code where the "magic" happens:
+
+```yaml
+  process-file:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:              # <--- 1. PARALLELIZATION STRATEGY STARTS HERE
+      fail-fast: false
+      matrix:              # <--- 2. DEFINES THE PARALLEL JOBS
+        file: ${{ fromJSON(needs.setup.outputs.files) }}
+
+```
+
+### How it works step-by-step:
+
+1. **`strategy: matrix`**: In GitHub Actions, a "matrix" tells the system to run the current job multiple times simultaneously.
+2. **`file: ${{ fromJSON(...) }}`**:
+* The `setup` job (ran previously) converted your CSV list of URLs into a JSON array (e.g., `["url1", "url2", "url3"]`).
+* This line injects that array into the matrix.
+* GitHub Actions sees a list of 3 items and immediately spawns **3 separate machines** (jobs), each running in parallel.
+
+
+3. **`runs-on: ubuntu-latest`**: Since this is inside the matrix job, every single parallel job gets its own fresh, isolated Ubuntu virtual machine.
+
+### Where the specific URL is used:
+
+A few lines down in the same job, the code uses `${{ matrix.file }}` to tell that specific machine which URL to process:
+
+```yaml
+      - name: Run gamma-gamma analysis in ROOT Docker
+        # ... (omitted lines)
+          run: |
+            set -e
+            cd /workspace/${{ env.EX_DIR }}
+            mkdir -p plots
+            # VVVVV THIS IS WHERE THE SPECIFIC URL IS PASSED VVVVV
+            python3 gamma-gamma-analysis-v1.py "${{ matrix.file }}"
+
+```
+
+If your CSV has 50 URLs, the `matrix` block dynamically expands to create 50 separate jobs running at the same time (up to your GitHub account's concurrency limit), drastically reducing the total time compared to running them one by one.
+
+This have a lot of applications as we can do multiples versions of code
+
+```yaml
+jobs:
+  example_matrix:
+    strategy:
+      matrix:
+        platform: [desktop, mobile, iot]
+        app-version: [1.3, 1.5, 1.8]
+```
+
+Here's more infor on the docmentation
+https://docs.github.com/es/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency
+
+After finishing the jobs, we'll see that some of the files says 1 minute and other say's a long time ago edited, as if they weren't generated now by the action, that happens because github runs the hash and if it doesn't find a difference, it does not update it.
+
+____
+
+```bash
+
+```
+
